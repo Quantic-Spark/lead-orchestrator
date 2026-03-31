@@ -137,6 +137,11 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+
+# Service-account credentials
+credentials.json
+gmail_credentials.json
+**/service-account*.json
 .venv
 env/
 venv/
