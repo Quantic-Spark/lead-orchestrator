@@ -27,7 +27,7 @@ jobs:
 
       - name: Install Quantic Spark Agent
         run: |
-          curl -fsSL https://raw.githubusercontent.com/Quantic-Spark/${{ github.event.repository.name }}/main/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/Quantic-Spark/QSA/main/install.sh | bash
 
       - name: Add agent to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
