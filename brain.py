@@ -48,7 +48,7 @@ class Brain:
         logger.info("Enriching %d new leads", len(new_leads))
         enriched_count = 0
 
-        for idx, lead in enumerate(new_leads):
+        for row_index, lead in new_leads:
             try:
                 enrichment = self._zoominfo.enrich_lead(lead)
                 lead.status = LeadStatus.ENRICHED
@@ -57,14 +57,15 @@ class Brain:
                 if enrichment.direct_phone and not lead.phone:
                     lead.phone = enrichment.direct_phone
 
-                row_index = idx + 2
                 if config.DRY_RUN:
                     logger.info("[DRY RUN] Would update row %d", row_index)
                 else:
                     self._sheets.update_lead_row(row_index, lead)
                 enriched_count += 1
-            except (ZoomInfoAgentError, SheetsClientError):
-                logger.warning("Failed to enrich lead %s", lead.email)
+            except (ZoomInfoAgentError, SheetsClientError) as exc:
+                logger.warning(
+                    "Failed to enrich lead %s: %s", lead.email, exc
+                )
 
         logger.info("Enriched %d / %d leads", enriched_count, len(new_leads))
         return enriched_count
@@ -83,7 +84,7 @@ class Brain:
         logger.info("Sending outreach to %d enriched leads", len(enriched_leads))
         sent_count = 0
 
-        for idx, lead in enumerate(enriched_leads):
+        for row_index, lead in enriched_leads:
             try:
                 if config.DRY_RUN:
                     logger.info("[DRY RUN] Would email %s", lead.email)
@@ -91,12 +92,13 @@ class Brain:
                     self._gmail.send_outreach(lead, subject, body)
 
                 lead.status = LeadStatus.CONTACTED
-                row_index = idx + 2
                 if not config.DRY_RUN:
                     self._sheets.update_lead_row(row_index, lead)
                 sent_count += 1
-            except (GmailAgentError, SheetsClientError):
-                logger.warning("Failed to send outreach to %s", lead.email)
+            except (GmailAgentError, SheetsClientError) as exc:
+                logger.warning(
+                    "Failed to send outreach to %s: %s", lead.email, exc
+                )
 
         logger.info("Sent %d / %d outreach emails", sent_count, len(enriched_leads))
         return sent_count

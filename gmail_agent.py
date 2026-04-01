@@ -35,29 +35,22 @@ class GmailAgent:
             )
             delegated = creds.with_subject(config.GMAIL_SENDER_EMAIL)
             self._service = build("gmail", "v1", credentials=delegated)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
             raise GmailAgentError(
                 f"Credentials file not found: {config.GMAIL_CREDENTIALS_FILE}"
-            )
+            ) from exc
         except Exception as exc:
-            raise GmailAgentError(f"Failed to initialise Gmail agent: {exc}")
+            raise GmailAgentError(
+                f"Failed to initialise Gmail agent: {exc}"
+            ) from exc
 
-    def send_email(
-        self,
-        to: str,
-        subject: str,
-        body_text: str,
-        *,
-        body_html: str | None = None,
-    ) -> str:
-        """Send an email and return the message ID.
+    def send_email(self, to: str, subject: str, body_text: str) -> str:
+        """Send a plain-text email and return the message ID.
 
         Args:
             to: Recipient email address (validated by Lead model).
             subject: Plain-text subject line.
             body_text: Plain-text body content.
-            body_html: Optional HTML body. User-supplied values are escaped to
-                       prevent XSS when rendered in webmail clients.
         """
         if len(subject) > _MAX_SUBJECT_LENGTH:
             raise ValueError(
@@ -68,11 +61,7 @@ class GmailAgent:
                 f"Body exceeds max length of {_MAX_BODY_LENGTH} characters"
             )
 
-        if body_html is not None:
-            mime = MIMEText(body_html, "html")
-        else:
-            mime = MIMEText(body_text, "plain")
-
+        mime = MIMEText(body_text, "plain")
         mime["to"] = to
         mime["from"] = config.GMAIL_SENDER_EMAIL
         mime["subject"] = subject
@@ -90,7 +79,7 @@ class GmailAgent:
             logger.info("Sent email to %s (message_id=%s)", to, message_id)
             return message_id
         except Exception as exc:
-            raise GmailAgentError(f"Failed to send email to {to}: {exc}")
+            raise GmailAgentError(f"Failed to send email to {to}: {exc}") from exc
 
     def send_outreach(self, lead: Lead, subject: str, body: str) -> str:
         """Send a personalised outreach email.

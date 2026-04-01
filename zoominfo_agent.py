@@ -44,7 +44,9 @@ class ZoomInfoAgent:
             self._session.headers["Authorization"] = f"Bearer {token}"
             logger.info("Authenticated with ZoomInfo API")
         except requests.RequestException as exc:
-            raise ZoomInfoAgentError(f"ZoomInfo authentication failed: {exc}")
+            raise ZoomInfoAgentError(
+                f"ZoomInfo authentication failed (HTTP {getattr(exc.response, 'status_code', 'N/A')})"
+            ) from exc
 
     def enrich_lead(self, lead: Lead) -> EnrichmentData:
         """Look up a lead by email and return enrichment data."""
@@ -67,8 +69,9 @@ class ZoomInfoAgent:
             data = resp.json()
         except requests.RequestException as exc:
             raise ZoomInfoAgentError(
-                f"ZoomInfo enrichment request failed for {lead.email}: {exc}"
-            )
+                f"ZoomInfo enrichment request failed for {lead.email} "
+                f"(HTTP {getattr(exc.response, 'status_code', 'N/A')})"
+            ) from exc
 
         contacts = data.get("data", [])
         if not contacts:

@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -13,30 +12,22 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+_VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
-class _MissingVars(Exception):
-    """Raised when required environment variables are absent."""
+
+class ConfigError(Exception):
+    """Raised when required environment variables are absent or invalid."""
 
 
 def _require_env(name: str) -> str:
     value = os.getenv(name)
     if not value:
-        raise _MissingVars(f"Required environment variable '{name}' is not set")
+        raise ConfigError(f"Required environment variable '{name}' is not set")
     return value
 
 
 def _optional_env(name: str, default: str = "") -> str:
     return os.getenv(name, default)
-
-
-def _resolve_credentials_path(env_var: str) -> Path:
-    raw = _require_env(env_var)
-    path = Path(raw).resolve()
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"Credentials file referenced by {env_var} not found: {path}"
-        )
-    return path
 
 
 # --- Google Sheets ---
@@ -58,12 +49,13 @@ ZOOMINFO_USERNAME = _optional_env("ZOOMINFO_USERNAME")
 ZOOMINFO_PASSWORD = _optional_env("ZOOMINFO_PASSWORD")
 
 # --- App-wide ---
-LOG_LEVEL = _optional_env("LOG_LEVEL", "INFO").upper()
+_raw_log_level = _optional_env("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = _raw_log_level if _raw_log_level in _VALID_LOG_LEVELS else "INFO"
 DRY_RUN = _optional_env("DRY_RUN", "false").lower() in ("true", "1", "yes")
 
 
 def configure_logging() -> None:
-    level = getattr(logging, LOG_LEVEL, logging.INFO)
+    level = getattr(logging, LOG_LEVEL)
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -74,7 +66,7 @@ def configure_logging() -> None:
 def validate_required_settings(services: list[str] | None = None) -> None:
     """Validate that required config values are present for the requested services.
 
-    Raises _MissingVars with a combined message for all missing variables.
+    Raises ConfigError with a combined message for all missing variables.
     """
     missing: list[str] = []
     services = services or ["sheets", "gmail", "zoominfo"]
@@ -98,6 +90,6 @@ def validate_required_settings(services: list[str] | None = None) -> None:
                 missing.append(var_name)
 
     if missing:
-        raise _MissingVars(
+        raise ConfigError(
             "Missing required environment variables: " + ", ".join(missing)
         )
